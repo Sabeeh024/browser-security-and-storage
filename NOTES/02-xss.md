@@ -17,6 +17,27 @@ here read it back, which is the concrete link to topic 01.
 
 ---
 
+## Resolves from topic 01
+
+> **"If XSS defeats every JS-readable store, how do I actually prevent XSS?"**
+
+Answered here in full. Short version: you never *store* your way out of XSS —
+you stop attacker script from running. Priorities, most effective first:
+
+1. **Don't opt out of escaping.** Use `{value}` / `.textContent`. If you never
+   call `dangerouslySetInnerHTML`, `innerHTML`, `document.write`, `eval`, or
+   `new Function` on untrusted data, the large majority of XSS is structurally
+   impossible.
+2. **When you must render HTML, sanitise it** (DOMPurify) at the point it
+   becomes DOM, every render.
+3. **Allowlist URL schemes** before they reach `href`/`src`.
+4. **Strict CSP** as the net under all of the above (full wiring: topic 07).
+
+The other two topic-01 questions ("where does the JWT go?", "how do I set
+cookie flags / headers?") are still open — topic 04 and topic 05/07.
+
+---
+
 ## What XSS actually is
 
 Attacker gets **their** JavaScript to execute in **your** page's origin. Once it
