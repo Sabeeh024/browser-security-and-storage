@@ -1,6 +1,50 @@
-main {
-  max-width: 720px;
-  margin: 3rem auto;
-  padding: 0 1rem;
-  font: 16px/1.6 system-ui, sans-serif;
+* { box-sizing: border-box; }
+body { margin: 0; }
+
+.layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 100vh;
+  font: 15px/1.6 system-ui, sans-serif;
 }
+
+nav {
+  border-right: 1px solid #ddd;
+  padding: 1rem;
+  background: #fafafa;
+}
+nav h1 { font-size: 1.05rem; }
+nav ul { list-style: none; padding: 0; margin: 0; }
+nav button {
+  width: 100%;
+  text-align: left;
+  padding: .5rem .6rem;
+  margin: .15rem 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+nav button:hover { background: #eee; }
+nav button.active { background: #2b5fff; color: #fff; }
+
+main {
+  padding: 1.5rem 2rem;
+  max-width: 900px;
+}
+main input {
+  padding: .35rem .5rem;
+  border: 1px solid #bbb;
+  border-radius: 5px;
+  font: inherit;
+}
+main button {
+  padding: .35rem .7rem;
+  border: 1px solid #bbb;
+  border-radius: 5px;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+main button:hover { background: #f0f0f0; }
