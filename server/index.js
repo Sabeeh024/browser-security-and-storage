@@ -37,7 +37,7 @@ app.use((req, res, next) => {
     res.set('Access-Control-Allow-Credentials', 'true')
     res.set('Vary', 'Origin')
   }
-  res.set('Access-Control-Allow-Headers', 'Content-Type, X-CSRF-Token')
+  res.set('Access-Control-Allow-Headers', 'Content-Type, X-CSRF-Token, Authorization')
   res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
   if (req.method === 'OPTIONS') return res.sendStatus(204)
   next()
