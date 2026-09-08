@@ -303,6 +303,63 @@ app.get('/evil', (_req, res) => {
 </script>`)
 })
 
+/* ======================================================================
+ * LESSON 6 — common attacks, briefly.
+ * ==================================================================== */
+
+// --- Open redirect ---------------------------------------------------------
+// Naive: bounce anywhere the query says. Attacker sends victims a link to
+// YOUR trusted domain that silently forwards to a phishing page.
+app.get('/redirect', (req, res) => {
+  const to = String(req.query.to || '/')
+  res.redirect(to)
+})
+// Safe: only allow same-site relative paths.
+app.get('/safe-redirect', (req, res) => {
+  const to = String(req.query.to || '/')
+  const ok = to.startsWith('/') && !to.startsWith('//') // reject //evil.com and http(s):
+  res.redirect(ok ? to : '/')
+})
+
+// --- Reverse tabnabbing --------------------------------------------------
+// A page opened via target="_blank" without rel="noopener" can reach back
+// through window.opener and navigate the tab that launched it.
+app.get('/tabnab', (_req, res) => {
+  res.type('html').send(`<!doctype html><meta charset=utf-8><title>Free Gift</title>
+  <style>body{font:15px system-ui;max-width:600px;margin:2rem auto;padding:0 1rem}</style>
+  <h1>🎁 Claim your free gift</h1><pre id=o>checking window.opener …</pre>
+  <script>
+    const o = document.getElementById('o')
+    if (window.opener && !window.opener.closed) {
+      try {
+        window.opener.location = 'http://localhost:8787/phish'
+        o.textContent = 'HAD window.opener → redirected the original tab to a phishing page.'
+      } catch (e) { o.textContent = 'window.opener present but cross-origin navigation blocked: ' + e }
+    } else {
+      o.textContent = 'window.opener is null ✅ (rel="noopener", or modern browser default for target=_blank).'
+    }
+  </script>`)
+})
+app.get('/phish', (_req, res) => {
+  res.type('html').send(`<!doctype html><meta charset=utf-8><title>Session expired</title>
+  <style>body{font:15px system-ui;max-width:420px;margin:3rem auto;padding:0 1rem}</style>
+  <h1>Your session expired</h1>
+  <p>(You didn't click anything. The other tab navigated you here via
+  <code>window.opener</code>.) A real attack would show a pixel-perfect login form.</p>`)
+})
+
+// --- postMessage ---------------------------------------------------------
+// An embedded frame that fires a message at its parent. The lesson shows a
+// listener with and without an event.origin check.
+app.get('/pm-frame', (_req, res) => {
+  res.type('html').send(`<!doctype html><meta charset=utf-8>
+  <body style="font:13px system-ui;background:#eef;margin:0;padding:.5rem">
+  I am /pm-frame (origin http://localhost:8787). Posting a message to my parent…
+  <script>
+    parent.postMessage({ type: 'SET_BALANCE', amount: 0 }, '*')
+  </script>`)
+})
+
 app.listen(PORT, () => {
   console.log(`bank API on http://localhost:${PORT}`)
   console.log(`attacker page on http://127.0.0.1:${PORT}/evil`)
