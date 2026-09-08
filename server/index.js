@@ -111,6 +111,87 @@ app.post('/transfer', (req, res) => {
   res.json({ ok: true, transferred: amount, balance: s.balance, checks })
 })
 
+/* ======================================================================
+ * LESSON 4 — three ways to hold an auth credential in the browser.
+ * All three authenticate the same protected endpoint shapes below.
+ * ==================================================================== */
+
+const ACCESS_TTL_MS = 15_000        // deliberately tiny so you SEE it expire
+const REFRESH_TTL_MS = 60 * 60_000
+
+const accessTokens = new Map()  // token -> { user, exp }
+const refreshTokens = new Map() // token -> { user, exp }
+const bffSessions = new Map()   // bff_sid -> { user, upstreamAccessToken }
+
+const mint = (store, user, ttl) => {
+  const t = rand()
+  store.set(t, { user, exp: Date.now() + ttl })
+  return t
+}
+const verify = (store, t) => {
+  const rec = store.get(t)
+  if (!rec) return null
+  if (Date.now() > rec.exp) { store.delete(t); return null }
+  return rec
+}
+
+/* ---- Approach B: in-memory access token + HttpOnly refresh cookie ------ */
+app.post('/auth/login', (_req, res) => {
+  const user = 'alice'
+  const refresh = mint(refreshTokens, user, REFRESH_TTL_MS)
+  // refresh token: HttpOnly + Strict + path-scoped to the refresh endpoint only
+  res.cookie('refresh', refresh, {
+    httpOnly: true, sameSite: 'Strict', secure: false, path: '/auth/refresh',
+  })
+  // access token: returned in the BODY. The SPA keeps it in a JS variable.
+  res.json({ user, accessToken: mint(accessTokens, user, ACCESS_TTL_MS), expiresInMs: ACCESS_TTL_MS })
+})
+
+app.post('/auth/refresh', (req, res) => {
+  const rec = verify(refreshTokens, req.cookies.refresh)
+  if (!rec) return res.status(401).json({ error: 'no/expired refresh cookie — full login needed' })
+  // (production: rotate the refresh token here too)
+  res.json({ user: rec.user, accessToken: mint(accessTokens, rec.user, ACCESS_TTL_MS), expiresInMs: ACCESS_TTL_MS })
+})
+
+app.get('/auth/data', (req, res) => {
+  const bearer = (req.headers.authorization || '').replace(/^Bearer /, '')
+  const rec = verify(accessTokens, bearer)
+  if (!rec) return res.status(401).json({ error: 'missing/expired access token in Authorization header' })
+  res.json({ secret: `${rec.user}'s protected data`, servedAt: new Date().toISOString() })
+})
+
+app.post('/auth/logout', (req, res) => {
+  refreshTokens.delete(req.cookies.refresh)
+  res.clearCookie('refresh', { path: '/auth/refresh' }).json({ ok: true })
+})
+
+/* ---- Approach C: BFF — token never reaches the browser at all --------- */
+app.post('/bff/login', (_req, res) => {
+  const user = 'alice'
+  const bffSid = rand()
+  // The BFF holds the real upstream token server-side, keyed by its own cookie.
+  bffSessions.set(bffSid, { user, upstreamAccessToken: mint(accessTokens, user, REFRESH_TTL_MS) })
+  res.cookie('bff_sid', bffSid, {
+    httpOnly: true, sameSite: 'Lax', secure: false, path: '/bff',
+  })
+  res.json({ user }) // <-- no token in the response
+})
+
+app.get('/bff/data', (req, res) => {
+  const sess = bffSessions.get(req.cookies.bff_sid)
+  if (!sess) return res.status(401).json({ error: 'no BFF session cookie' })
+  // BFF attaches the token and calls the upstream API on the user's behalf.
+  const rec = verify(accessTokens, sess.upstreamAccessToken)
+  if (!rec) return res.status(502).json({ error: 'upstream token expired (BFF would refresh here)' })
+  res.json({ secret: `${sess.user}'s protected data (via BFF)`, servedAt: new Date().toISOString() })
+})
+
+app.post('/bff/logout', (req, res) => {
+  bffSessions.delete(req.cookies.bff_sid)
+  res.clearCookie('bff_sid', { path: '/bff' }).json({ ok: true })
+})
+
 /* --- the attacker's page. Open at http://127.0.0.1:8787/evil ------------- */
 app.get('/evil', (_req, res) => {
   res.type('html').send(`<!doctype html>
