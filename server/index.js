@@ -31,12 +31,38 @@ const rand = () => Math.random().toString(36).slice(2) + Date.now().toString(36)
 
 /* ======================================================================
  * LESSON 5 — CORS playground + security response headers.
- * These routes get their OWN (deliberately mis-configurable) handling,
- * so they bypass the sane global CORS middleware below.
  * ==================================================================== */
 let corsCfg = { mode: 'allowlist', credentials: true } // off | wildcard | reflect | allowlist
 let hdrCfg = { securityHeaders: true, frameAncestors: "'none'" } // 'none' | 'self' | <origin>
 
+/* --- global security headers: run first, for every response ------------ */
+app.use((_req, res, next) => {
+  if (hdrCfg.securityHeaders) {
+    res.set('X-Content-Type-Options', 'nosniff')
+    res.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+    res.set('X-Frame-Options', 'DENY')
+    res.set('Permissions-Policy', 'geolocation=(), camera=(), microphone=()')
+    res.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains') // no-op on http, shown for reference
+  }
+  next()
+})
+
+/* --- CORS: only the real SPA may read responses with credentials -------- */
+app.use((req, res, next) => {
+  if (req.path.startsWith('/cors')) return next() // the /cors playground owns its own CORS
+  const origin = req.headers.origin
+  if (origin && APP_ORIGINS.includes(origin)) {
+    res.set('Access-Control-Allow-Origin', origin)
+    res.set('Access-Control-Allow-Credentials', 'true')
+    res.set('Vary', 'Origin')
+  }
+  res.set('Access-Control-Allow-Headers', 'Content-Type, X-CSRF-Token, Authorization')
+  res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  if (req.method === 'OPTIONS') return res.sendStatus(204)
+  next()
+})
+
+/* --- the /cors playground's deliberately mis-configurable CORS --------- */
 app.use('/cors', (req, res, next) => {
   const origin = req.headers.origin
   res.set('Vary', 'Origin')
@@ -68,7 +94,10 @@ app.get('/framed', (_req, res) => {
   // frameAncestors: "'none'" | "'self'" | "http://localhost:5173"
   const fa = hdrCfg.frameAncestors
   res.set('Content-Security-Policy', `frame-ancestors ${fa}`)
+  // XFO has no "allow specific origin" value, so drop it unless we mean DENY.
+  // (the global middleware set XFO:DENY for us)
   if (fa === "'none'") res.set('X-Frame-Options', 'DENY')
+  else res.removeHeader('X-Frame-Options')
   res.type('html').send(`<!doctype html><meta charset=utf-8>
     <body style="font:14px system-ui;background:#dfe;margin:0;display:grid;place-items:center;height:100vh">
     <div><b>/framed</b> loaded inside an iframe.<br>frame-ancestors = <code>${fa}</code></div>`)
@@ -87,33 +116,6 @@ app.get('/cors-probe', (_req, res) => {
       .catch(e => document.getElementById('o').textContent =
         'BLOCKED by CORS ✅ — request may have been sent, but JS cannot read the reply\\n\\n' + e)
   </script>`)
-})
-
-/* --- global security headers for everything else ------------------------ */
-app.use((_req, res, next) => {
-  if (hdrCfg.securityHeaders) {
-    res.set('X-Content-Type-Options', 'nosniff')
-    res.set('Referrer-Policy', 'strict-origin-when-cross-origin')
-    res.set('X-Frame-Options', 'DENY')
-    res.set('Permissions-Policy', 'geolocation=(), camera=(), microphone=()')
-    res.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains') // no-op on http, shown for reference
-  }
-  next()
-})
-
-/* --- CORS: only the real SPA may read responses with credentials --------- */
-app.use((req, res, next) => {
-  if (req.path.startsWith('/cors')) return next() // Lesson 5 owns its CORS
-  const origin = req.headers.origin
-  if (origin && APP_ORIGINS.includes(origin)) {
-    res.set('Access-Control-Allow-Origin', origin)
-    res.set('Access-Control-Allow-Credentials', 'true')
-    res.set('Vary', 'Origin')
-  }
-  res.set('Access-Control-Allow-Headers', 'Content-Type, X-CSRF-Token, Authorization')
-  res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-  if (req.method === 'OPTIONS') return res.sendStatus(204)
-  next()
 })
 
 app.get('/config', (_req, res) => res.json(config))
