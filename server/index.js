@@ -352,11 +352,14 @@ app.get('/phish', (_req, res) => {
 // An embedded frame that fires a message at its parent. The lesson shows a
 // listener with and without an event.origin check.
 app.get('/pm-frame', (_req, res) => {
+  res.removeHeader('X-Frame-Options')
+  res.set('Content-Security-Policy', 'frame-ancestors http://localhost:5173')
   res.type('html').send(`<!doctype html><meta charset=utf-8>
   <body style="font:13px system-ui;background:#eef;margin:0;padding:.5rem">
   I am /pm-frame (origin http://localhost:8787). Posting a message to my parent…
   <script>
-    parent.postMessage({ type: 'SET_BALANCE', amount: 0 }, '*')
+    const fire = () => parent.postMessage({ type: 'SET_BALANCE', amount: 0 }, '*')
+    fire(); setTimeout(fire, 600); setTimeout(fire, 1600)
   </script>`)
 })
 
