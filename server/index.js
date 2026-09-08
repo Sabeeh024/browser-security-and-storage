@@ -29,8 +29,81 @@ let config = { sameSite: 'Lax', csrf: true, originCheck: true }
 
 const rand = () => Math.random().toString(36).slice(2) + Date.now().toString(36)
 
+/* ======================================================================
+ * LESSON 5 — CORS playground + security response headers.
+ * These routes get their OWN (deliberately mis-configurable) handling,
+ * so they bypass the sane global CORS middleware below.
+ * ==================================================================== */
+let corsCfg = { mode: 'allowlist', credentials: true } // off | wildcard | reflect | allowlist
+let hdrCfg = { securityHeaders: true, frameAncestors: "'none'" } // 'none' | 'self' | <origin>
+
+app.use('/cors', (req, res, next) => {
+  const origin = req.headers.origin
+  res.set('Vary', 'Origin')
+  if (corsCfg.mode === 'wildcard') {
+    res.set('Access-Control-Allow-Origin', '*')
+    // NB: browsers forbid '*' + credentials, so we can't also allow creds here
+  } else if (corsCfg.mode === 'reflect' && origin) {
+    res.set('Access-Control-Allow-Origin', origin) // <-- the dangerous misconfig
+    if (corsCfg.credentials) res.set('Access-Control-Allow-Credentials', 'true')
+  } else if (corsCfg.mode === 'allowlist' && APP_ORIGINS.includes(origin)) {
+    res.set('Access-Control-Allow-Origin', origin)
+    if (corsCfg.credentials) res.set('Access-Control-Allow-Credentials', 'true')
+  }
+  res.set('Access-Control-Allow-Headers', 'Content-Type')
+  if (req.method === 'OPTIONS') return res.sendStatus(204)
+  next()
+})
+
+app.get('/cors/config', (_req, res) => res.json(corsCfg))
+app.post('/cors/config', (req, res) => { corsCfg = { ...corsCfg, ...req.body }; res.json(corsCfg) })
+app.get('/cors/data', (req, res) =>
+  res.json({ secret: 'cross-origin JSON payload', sawSessionCookie: !!req.cookies.sid }))
+
+app.get('/headers/config', (_req, res) => res.json(hdrCfg))
+app.post('/headers/config', (req, res) => { hdrCfg = { ...hdrCfg, ...req.body }; res.json(hdrCfg) })
+
+// the page we try to iframe from the SPA to test frame-ancestors / XFO
+app.get('/framed', (_req, res) => {
+  // frameAncestors: "'none'" | "'self'" | "http://localhost:5173"
+  const fa = hdrCfg.frameAncestors
+  res.set('Content-Security-Policy', `frame-ancestors ${fa}`)
+  if (fa === "'none'") res.set('X-Frame-Options', 'DENY')
+  res.type('html').send(`<!doctype html><meta charset=utf-8>
+    <body style="font:14px system-ui;background:#dfe;margin:0;display:grid;place-items:center;height:100vh">
+    <div><b>/framed</b> loaded inside an iframe.<br>frame-ancestors = <code>${fa}</code></div>`)
+})
+
+// a probe page on the OTHER site (127.0.0.1) — genuinely cross-site
+app.get('/cors-probe', (_req, res) => {
+  res.type('html').send(`<!doctype html><meta charset=utf-8><title>CORS probe</title>
+  <style>body{font:14px system-ui;max-width:640px;margin:2rem auto;padding:0 1rem}</style>
+  <h1>CORS probe — I am http://127.0.0.1:8787 (a different site)</h1>
+  <pre id=o>fetching http://localhost:8787/cors/data …</pre>
+  <script>
+    fetch('http://localhost:8787/cors/data', { credentials: 'include' })
+      .then(async r => document.getElementById('o').textContent =
+        'READ THE RESPONSE ✅ (server allowed this origin)\\n\\n' + JSON.stringify(await r.json(), null, 2))
+      .catch(e => document.getElementById('o').textContent =
+        'BLOCKED by CORS ✅ — request may have been sent, but JS cannot read the reply\\n\\n' + e)
+  </script>`)
+})
+
+/* --- global security headers for everything else ------------------------ */
+app.use((_req, res, next) => {
+  if (hdrCfg.securityHeaders) {
+    res.set('X-Content-Type-Options', 'nosniff')
+    res.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+    res.set('X-Frame-Options', 'DENY')
+    res.set('Permissions-Policy', 'geolocation=(), camera=(), microphone=()')
+    res.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains') // no-op on http, shown for reference
+  }
+  next()
+})
+
 /* --- CORS: only the real SPA may read responses with credentials --------- */
 app.use((req, res, next) => {
+  if (req.path.startsWith('/cors')) return next() // Lesson 5 owns its CORS
   const origin = req.headers.origin
   if (origin && APP_ORIGINS.includes(origin)) {
     res.set('Access-Control-Allow-Origin', origin)

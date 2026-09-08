@@ -1,6 +1,8 @@
 // Client for the demo bank API (server/index.js). Base is a different origin,
 // so every call needs credentials:'include' to send/receive the cookies.
 const BASE = 'http://localhost:8787'
+export const BANK_BASE = BASE
+export const PROBE_BASE = 'http://127.0.0.1:8787'
 
 const readCookie = (name) =>
   document.cookie.split('; ').find((c) => c.startsWith(name + '='))?.split('=')[1]
@@ -49,4 +51,13 @@ export const authApi = {
   bffLogin: () => req('/bff/login', { method: 'POST' }),
   bffData: () => req('/bff/data'),
   bffLogout: () => req('/bff/logout', { method: 'POST' }),
+}
+
+// --- Lesson 5: CORS + headers ---
+export const headersApi = {
+  getCorsCfg: () => req('/cors/config'),
+  setCorsCfg: (patch) => req('/cors/config', { method: 'POST', body: patch }),
+  corsData: () => req('/cors/data'),
+  getHdrCfg: () => req('/headers/config'),
+  setHdrCfg: (patch) => req('/headers/config', { method: 'POST', body: patch }),
 }
