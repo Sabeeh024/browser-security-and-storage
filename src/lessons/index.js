@@ -4,6 +4,7 @@ import CsrfLab from './CsrfLab.jsx'
 import AuthTokenLab from './AuthTokenLab.jsx'
 import HeadersCorsLab from './HeadersCorsLab.jsx'
 import CommonAttacksLab from './CommonAttacksLab.jsx'
+import ProductionLab from './ProductionLab.jsx'
 
 // Add a line here as each lesson lands.
 export const lessons = [
@@ -13,4 +14,5 @@ export const lessons = [
   { id: 'auth', title: '4 · Auth token storage', Component: AuthTokenLab },
   { id: 'headers', title: '5 · Headers & CORS', Component: HeadersCorsLab },
   { id: 'common', title: '6 · Common attacks', Component: CommonAttacksLab },
+  { id: 'prod', title: '7 · Production practices', Component: ProductionLab },
 ]

@@ -1,0 +1,31 @@
+name: security
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Reproducible install from the committed lockfile — no drift, runs
+      # lifecycle scripts only for known deps.
+      - run: npm ci
+
+      # Known-vuln dependencies. --omit=dev if you only care about shipped code.
+      - run: npm audit --audit-level=high
+
+      - run: npm run build
+
+      # Backstop: no secret-shaped strings in the client bundle.
+      - run: node scripts/check-bundle-secrets.mjs
+
+      # Optional: assert the deployed headers (needs a preview URL).
+      # - run: npx @0xdc/observatory-cli $PREVIEW_URL --min-grade B

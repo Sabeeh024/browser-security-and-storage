@@ -7,6 +7,8 @@
     "dev": "vite",
     "server": "node server/index.js",
     "build": "vite build",
+    "serve:prod": "node server/prod.js",
+    "check:secrets": "node scripts/check-bundle-secrets.mjs",
     "lint": "oxlint",
     "preview": "vite preview"
   },
