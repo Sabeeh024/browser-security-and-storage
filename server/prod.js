@@ -82,6 +82,6 @@ app.use(express.static(DIST, { setHeaders: (res, p) => {
   if (p.endsWith('.html')) res.set('Cache-Control', 'no-cache')
   else if (p.includes(`${'assets'}/`)) res.set('Cache-Control', 'public, max-age=31536000, immutable')
 }}))
-app.get('*', (_req, res) => res.sendFile(join(DIST, 'index.html'))) // SPA fallback
+app.use((_req, res) => res.sendFile(join(DIST, 'index.html'))) // SPA fallback
 
 app.listen(PORT, () => console.log(`prod SPA on http://localhost:${PORT}  (CSP report-uri: /csp-report)`))
