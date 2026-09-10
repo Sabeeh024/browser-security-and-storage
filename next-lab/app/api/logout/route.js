@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { clearSession } from '@/app/lib/session'
 
-export async function POST() {
-  await clearSession()
-  return NextResponse.redirect(new URL('/', process.env.NEXT_PUBLIC_ORIGIN || 'http://localhost:3000'), 303)
+export async function POST(req) {
+  await clearSession() // (a real BFF would also revoke the token at the backend)
+  return NextResponse.redirect(new URL('/', req.url), 303)
 }

@@ -15,9 +15,10 @@ export default function RouteHandlerCall() {
     <div className="box">
       <h3>B · Route Handler <code>POST /api/transfer</code></h3>
       <p className="hint">
-        No automatic CSRF check. As exposed as the Express endpoint in topic 3 —
-        protected here only by <code>SameSite=Lax</code> + the middleware Origin
-        check. You add a CSRF token yourself if you need one.
+        No automatic CSRF check (unlike the Server Action). Protected here by{' '}
+        <code>SameSite=Lax</code> + the <code>proxy.js</code> Origin check. Next
+        then relays to <code>POST :8787/api/transfer</code> with the Bearer
+        token. Add a CSRF token too if you want defense in depth.
       </p>
       <div className="row"><button onClick={call}>fetch POST /api/transfer</button></div>
       <pre>{out || '(not called)'}</pre>

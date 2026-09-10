@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
+import { issueToken } from '@/app/lib/backend'
 import { setSession } from '@/app/lib/session'
 
-// Route Handler. Note: this is a plain POST endpoint — it does NOT get the
-// automatic CSRF/Origin check that Server Actions do. A cross-site form could
-// hit it. Mitigations: SameSite cookie (we set Lax), + a CSRF token, + the
-// Origin check we do in middleware.js.
-export async function POST() {
-  await setSession({ user: 'alice', loginAt: Date.now() })
-  return NextResponse.redirect(new URL('/', process.env.NEXT_PUBLIC_ORIGIN || 'http://localhost:3000'), 303)
+// Browser → Next (same origin) → Express (server-to-server).
+// Next exchanges a service credential for a per-user token and stashes it in
+// its own HttpOnly cookie. The browser gets a redirect and a cookie — no token.
+export async function POST(req) {
+  const { accessToken, user } = await issueToken('alice')
+  await setSession({ user, accessToken })
+  return NextResponse.redirect(new URL('/', req.url), 303)
 }

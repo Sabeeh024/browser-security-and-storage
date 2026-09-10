@@ -1,17 +1,16 @@
 'use server'
 
 import { getSession } from '@/app/lib/session'
-import { transfer } from '@/app/lib/db'
+import { backendTransfer } from '@/app/lib/backend'
 import { revalidatePath } from 'next/cache'
 
 /*
- * A Server Action. Next automatically:
- *   - only accepts POST
- *   - checks the Origin header matches the Host (its built-in CSRF defense)
- *   - serialises the call so a cross-site <form> can't forge it
+ * Server Action. Next automatically: POST-only + checks Origin vs Host (its
+ * built-in CSRF defense) + serialises the call so a cross-site <form> can't
+ * forge it.
  *
- * What it does NOT do for you: authorization. We still must check the session
- * and that the user is allowed to perform THIS action with THESE args.
+ * NOT done for you: authorization. We re-check the session and validate args,
+ * then call the real backend (which re-validates the token independently).
  */
 export async function doTransfer(formData) {
   const session = await getSession()
@@ -20,7 +19,8 @@ export async function doTransfer(formData) {
   const amount = Number(formData.get('amount')) || 100
   if (amount <= 0 || amount > 10_000) return { error: 'amount out of range' }
 
-  const balance = transfer(session.user, amount)
+  const { status, data } = await backendTransfer(session.accessToken, amount)
+  if (status !== 200) return { error: data.error || `backend ${status}` }
   revalidatePath('/csrf')
-  return { ok: true, via: 'server action', balance }
+  return { ok: true, via: 'server action → express', balance: data.balance }
 }

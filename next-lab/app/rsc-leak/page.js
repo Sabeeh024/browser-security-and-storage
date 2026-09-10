@@ -1,11 +1,11 @@
 import Link from 'next/link'
-import { API_SECRET } from '@/app/lib/db'
+import { SIGNING_KEY } from '@/app/lib/secrets'
 import RevealProp from './RevealProp'
 
 export const dynamic = 'force-dynamic'
 
 // A leaky demo value derived from the server-only secret.
-const LEAKY = `${API_SECRET.slice(0, 6)}…(server secret, first 6 chars)`
+const LEAKY = `${SIGNING_KEY.slice(0, 6)}…(server secret, first 6 chars)`
 
 export default function RscLeakPage() {
   return (

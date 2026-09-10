@@ -1,15 +1,14 @@
 import { NextResponse } from 'next/server'
 import { getSession } from '@/app/lib/session'
-import { getBalance } from '@/app/lib/db'
+import { getAccount } from '@/app/lib/backend'
 
-// ✅ per-user data: mark it private and uncacheable. In the App Router, reading
-// cookies() already makes a route dynamic — but be explicit for responses that
-// pass through any shared cache.
+// ✅ per-user data: mark it private and uncacheable. Reading cookies() already
+// makes the route dynamic; be explicit for anything through a shared cache.
 export async function GET() {
   const s = await getSession()
   if (!s) return NextResponse.json({ error: 'not authenticated' }, { status: 401 })
-  const body = { user: s.user, balance: getBalance(s.user), servedAt: new Date().toISOString() }
-  return NextResponse.json(body, {
+  const { data } = await getAccount(s.accessToken)
+  return NextResponse.json(data, {
     headers: { 'Cache-Control': 'private, no-store' },
   })
 }

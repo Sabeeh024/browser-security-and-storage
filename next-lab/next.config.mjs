@@ -1,7 +1,9 @@
 /** @type {import('next').NextConfig} */
 
 // Topic 5/7 header set — host-agnostic, applied to every route by Next itself.
-// The dynamic bits (CSP nonce) are in middleware.js; the static headers live here.
+// The dynamic bits (CSP nonce) are in proxy.js; the static headers live here.
+// Note: connect-src in the CSP does NOT need the Express origin — the browser
+// never calls Express, only Next's own /api/* routes (same origin).
 const securityHeaders = [
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -13,6 +15,7 @@ const securityHeaders = [
 
 const nextConfig = {
   turbopack: { root: import.meta.dirname }, // this folder, not the parent Vite lab
+  agentRules: false,      // don't auto-generate AGENTS.md / CLAUDE.md
   poweredByHeader: false, // drop the X-Powered-By: Next.js fingerprint
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }]

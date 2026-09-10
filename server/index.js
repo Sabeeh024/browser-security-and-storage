@@ -267,6 +267,54 @@ app.post('/bff/logout', (req, res) => {
   res.clearCookie('bff_sid', { path: '/bff' }).json({ ok: true })
 })
 
+/* ======================================================================
+ * LESSON 8 — this Express app is now THE BACKEND. The Next.js app is a
+ * frontend + BFF that calls these endpoints server-to-server with a Bearer
+ * token. No cookies, no CORS between Next and here (CORS is browser-only).
+ * A realistic token-authed resource API:
+ * ==================================================================== */
+const apiTokens = new Map()      // token -> { user, exp }
+const balances = new Map([['alice', 1000]])
+const API_TTL_MS = 30 * 60_000
+
+// The Next BFF calls this once at login to obtain a token it keeps server-side.
+app.post('/api/token', (req, res) => {
+  // In reality: verify username/password or a service credential. Here: trust
+  // the shared secret the BFF sends (server-to-server, never in a browser).
+  if (req.headers['x-api-key'] !== (process.env.BACKEND_API_KEY || 'dev-backend-key')) {
+    return res.status(401).json({ error: 'bad service credential' })
+  }
+  const user = req.body?.user || 'alice'
+  res.json({ accessToken: mint2(user), user, expiresInMs: API_TTL_MS })
+})
+
+function mint2(user) {
+  const t = rand()
+  apiTokens.set(t, { user, exp: Date.now() + API_TTL_MS })
+  return t
+}
+function bearerUser(req) {
+  const t = (req.headers.authorization || '').replace(/^Bearer /i, '')
+  const rec = apiTokens.get(t)
+  if (!rec || Date.now() > rec.exp) return null
+  return rec.user
+}
+
+app.get('/api/account', (req, res) => {
+  const user = bearerUser(req)
+  if (!user) return res.status(401).json({ error: 'invalid/expired bearer token' })
+  res.json({ user, balance: balances.get(user) ?? 0, servedAt: new Date().toISOString() })
+})
+
+app.post('/api/transfer', (req, res) => {
+  const user = bearerUser(req)
+  if (!user) return res.status(401).json({ error: 'invalid/expired bearer token' })
+  const amount = Number(req.body?.amount) || 0
+  if (amount <= 0 || amount > 10_000) return res.status(400).json({ error: 'amount out of range' })
+  balances.set(user, (balances.get(user) ?? 0) - amount)
+  res.json({ ok: true, user, transferred: amount, balance: balances.get(user) })
+})
+
 /* --- the attacker's page. Open at http://127.0.0.1:8787/evil ------------- */
 app.get('/evil', (_req, res) => {
   res.type('html').send(`<!doctype html>

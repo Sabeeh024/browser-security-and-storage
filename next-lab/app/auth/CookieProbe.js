@@ -18,10 +18,11 @@ export default function CookieProbe() {
       </div>
       <pre>{me || '(not called)'}</pre>
       <p className="hint">
-        The <code>demo_session</code> cookie is <code>HttpOnly</code> — absent
-        above. But the fetch still authenticates, because the browser attaches
-        the cookie automatically. Same lesson as topic 4: XSS can't steal it,
-        but can ride it.
+        The <code>bff_session</code> cookie is <code>HttpOnly</code> — absent
+        above, and the backend token inside it never reaches the browser at all.
+        But <code>/api/me</code> still works, because the browser attaches the
+        cookie automatically. Topic 4 again: XSS can't steal it, but can ride it
+        by calling our <code>/api/*</code> routes — which is why those re-check.
       </p>
     </div>
   )
